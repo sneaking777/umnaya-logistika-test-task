@@ -1,0 +1,34 @@
+# === Среда разработки ===
+/.idea/
+/.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# === Окружение ===
+.env
+.env.*.local
+
+# === Composer / PHP ===
+/vendor/
+composer.phar
+
+# === Laravel ===
+/bootstrap/cache/*.php
+/storage/*.key
+/storage/app/private/
+/storage/app/public/
+/storage/framework/cache/data/
+/storage/framework/sessions/
+/storage/framework/testing/
+/storage/framework/views/
+/storage/logs/
+
+# === Тесты / отчёты ===
+.phpunit.result.cache
+.phpunit.cache/
+/coverage/
+
+# === Рабочие артефакты сессии ===
+/CLAUDE.md
+

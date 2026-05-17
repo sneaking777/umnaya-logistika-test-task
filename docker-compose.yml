@@ -1,0 +1,167 @@
+name: notification-service
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: app
+    container_name: notify-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ROLE: api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./:/var/www/html
+      - app_vendor:/var/www/html/vendor
+    networks:
+      - notify_net
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: app
+    container_name: notify-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ROLE: worker
+    command: ["php", "artisan", "notifications:consume"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./:/var/www/html
+      - app_vendor:/var/www/html/vendor
+    networks:
+      - notify_net
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: app
+    container_name: notify-migrate
+    env_file:
+      - .env
+    command: ["php", "artisan", "migrate", "--force"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./:/var/www/html
+      - app_vendor:/var/www/html/vendor
+    networks:
+      - notify_net
+    restart: "no"
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: notify-nginx
+    restart: unless-stopped
+    ports:
+      - "${APP_HTTP_PORT:-8080}:80"
+    depends_on:
+      - app
+    volumes:
+      - ./:/var/www/html:ro
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - notify_net
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: notify-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-notifications}
+      POSTGRES_USER: ${DB_USERNAME:-notifications}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "${DB_FORWARD_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-notifications} -d ${DB_DATABASE:-notifications}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - notify_net
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: notify-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "${RABBITMQ_UI_PORT:-15672}:15672"
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - notify_net
+
+  redis:
+    image: redis:8-alpine
+    container_name: notify-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_FORWARD_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - notify_net
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui:v5
+    container_name: notify-swagger
+    restart: unless-stopped
+    environment:
+      SWAGGER_JSON: /spec/openapi.yaml
+    ports:
+      - "${SWAGGER_PORT:-8081}:8080"
+    volumes:
+      - ./openapi:/spec:ro
+    networks:
+      - notify_net
+
+volumes:
+  pgdata:
+  rabbitmqdata:
+  redisdata:
+  app_vendor:
+
+networks:
+  notify_net:
+    driver: bridge
