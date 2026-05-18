@@ -1,8 +1,7 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+// Closure-based artisan-команды регистрируются через Artisan::command().
+// Наша основная команда notifications:consume определена классом в
+// app/Console/Commands/ — auto-discovery подберёт её без регистрации здесь.
