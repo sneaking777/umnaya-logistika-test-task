@@ -7,6 +7,7 @@ namespace App\Messaging\Rabbit;
 use App\Enums\PriorityEnum;
 use App\Messaging\Contracts\PublisherInterface;
 use App\Models\Notification;
+use Exception;
 use Illuminate\Contracts\Config\Repository as Config;
 use JsonException;
 use PhpAmqpLib\Message\AMQPMessage;
@@ -73,6 +74,7 @@ readonly class RabbitPublisher implements PublisherInterface
     /**
      * @inheritDoc
      * @throws JsonException
+     * @throws Exception
      */
     public function publish(Notification $notification): void
     {
